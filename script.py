@@ -12,7 +12,11 @@ def read_yaml(path: str) -> Dict[str, Any]:
         return yaml.safe_load(file)
 
 #region cypress crew
-def cypress_crew(vue_code: str, agents_dict: Dict[str, Any], tasks_dict: Dict[str, Any], output_examples: Dict[str, Any]) -> Crew:
+def cypress_crew(vue_code: str) -> Crew:
+    agents_dict: Dict[str, Dict] = read_yaml(r"strings\agents.yaml")
+    tasks_dict: Dict[str, Dict] = read_yaml(r"strings\tasks.yaml")
+    output_examples = read_yaml(r"strings\output_examples.yaml")
+
     # region init llm
     llm_low_temp: LLM = LLM(
         model="gemini/gemini-1.5-flash",
@@ -24,7 +28,6 @@ def cypress_crew(vue_code: str, agents_dict: Dict[str, Any], tasks_dict: Dict[st
         temperature=0.2
     )
     # endregion
-
 
     # region format description and concat output examples
     tasks_dict["cypress_write"]["description"] = \
@@ -61,14 +64,15 @@ def cypress_crew(vue_code: str, agents_dict: Dict[str, Any], tasks_dict: Dict[st
         role=cypress_reviewer_dict["role"],
         goal=cypress_reviewer_dict["goal"],
         backstory=cypress_reviewer_dict["backstory"],
-        llm=llm_low_temp
+        llm=llm_low_temp,
     )
 
     cypress_review_dict: Dict[str, Dict] = tasks_dict["cypress_review"]
     cypress_review: Task = Task(
         description=cypress_review_dict["description"],
         expected_output=cypress_review_dict["expected_output"],
-        agent=cypress_reviewer
+        agent=cypress_reviewer,
+        context=[cypress_write]
     )
     #
 
@@ -86,7 +90,11 @@ def cypress_crew(vue_code: str, agents_dict: Dict[str, Any], tasks_dict: Dict[st
 # endregion 
 
 # region manager crew
-def manager_crew(results: List[str], agents_dict: Dict[str, Any], tasks_dict: Dict[str, Any], file_output_path: Dict[str, Any]) -> str:
+def manager_crew(results: List[str], output_path: str) -> str:
+    
+    agents_dict: Dict[str, Dict] = read_yaml(r"strings\agents.yaml")
+    tasks_dict: Dict[str, Dict] = read_yaml(r"strings\tasks.yaml")
+
     llm: LLM = LLM(
         model="gemini/gemini-1.5-flash",
         temperature=0.0
@@ -107,7 +115,7 @@ def manager_crew(results: List[str], agents_dict: Dict[str, Any], tasks_dict: Di
     final_task: Task = Task(
         description=manager_task_dict["description"],
         expected_output=manager_task_dict["expected_output"],
-        output_file=f"{file_output_path}.cy.js",
+        output_file=fr"tests\{output_path}.cy.js",
         agent=manager
     )
 
@@ -124,28 +132,24 @@ def manager_crew(results: List[str], agents_dict: Dict[str, Any], tasks_dict: Di
 
 # region main function
 def main() -> None:
-    # read yaml files
-    agents_dict: Dict[str, Dict] = read_yaml(r"strings\agents.yaml")
-    tasks_dict: Dict[str, Dict] = read_yaml(r"strings\tasks.yaml")
-    output_examples = read_yaml(r"strings\output_examples.yaml")
-    #
-
     # open vue code
-    path: str = r"C:\Users\gabri\Downloads\leds-conectafapes-frontend-admin-data-test-develop\leds-conectafapes-frontend-admin-data-test-develop\src\views\conecta-fapes\Modalidade\CreateVersaoModalidade.vue"
-    vue_file = open(path, encoding="utf-8")
-    vue_code = vue_file.read()
-    file_output_path = path.split("\\")[-1].split(".")[0]
-    #
+    path: str = r"C:\Users\gabri\Downloads\leds-conectafapes-frontend-admin-data-test-develop\leds-conectafapes-frontend-admin-data-test-develop\src\views\conecta-fapes"
+    for root, _, files in os.walk(path):
+        for file in files:
+            path = os.path.join(root, file)
+            output_path = path.split("conecta-fapes", 1)[-1]
 
-    # run cypress crew parallel
-    crew_cypress: Crew = cypress_crew(vue_code, agents_dict, tasks_dict, output_examples)
-    with ThreadPoolExecutor() as executor:
-        runs = [executor.submit(crew_cypress.kickoff) for _ in range(3)]
-        results = [run.result() for run in runs]
-    #
-    
-    crew_manager: Crew = manager_crew(results, agents_dict, tasks_dict, file_output_path)
-    crew_manager.kickoff()
+            with open(path, encoding="utf-8") as vue_file:
+                vue_code = vue_file.read()
+            # run cypress crew parallel
+            crew_cypress: Crew = cypress_crew(vue_code)
+            with ThreadPoolExecutor() as executor:
+                runs = [executor.submit(crew_cypress.kickoff) for _ in range(3)]
+                results = [run.result() for run in runs]
+            #
+            
+            crew_manager: Crew = manager_crew(results, output_path)
+            crew_manager.kickoff()
 
 
 if __name__ == "__main__":

@@ -1,7 +1,8 @@
 cypress_write:
   description: |
     {vue_code}
-    Open the file at the path above then write a black box test in cypress
+
+    You don't need to put an value and check if the input value in sequence it's not good practice.
     Return only the cypress code. Do not use any other special formating like markdown tags. Do not use ``` code block tag
   expected_output: |
     Only the cypress code. Do not use any other special formating like markdown tags. Do not use ``` code block tag
@@ -12,6 +13,7 @@ cypress_review:
     Below is the vue code which the test was based
     {vue_code}
 
+    You don't need to put an value and check if the input value in sequence it's not good practice.
     Return only the cypress code. Do not use any other special formating like markdown tags. Do not use ``` code block tag
   expected_output: |
     Only the cypress code. Do not use any other special formating like markdown tags. Do not use ``` code block tag
