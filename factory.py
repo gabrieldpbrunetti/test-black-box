@@ -80,7 +80,7 @@ class CrewFactory:
         final_task = Task(
             description=manager_task["description"],
             expected_output=manager_task["expected_output"],
-            output_file=output_path.with_suffix(".cy.js"),
+            output_file=str(output_path.with_suffix(".cy.js")),
             agent=manager
         )
 
